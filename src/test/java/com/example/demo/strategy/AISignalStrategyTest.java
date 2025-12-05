@@ -1,13 +1,15 @@
 package com.example.demo.strategy;
 
-import com.example.demo.ai.AIClient.TradingSignal;
-import com.example.demo.strategy.Strategy.TradingDecision;
-import com.example.demo.strategy.Strategy.TradingDecision.Action;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+
+import com.trading.ai.AIClient.TradingSignal;
+import com.trading.demo.strategy.AISignalStrategy;
+import com.trading.demo.strategy.Strategy.TradingDecision;
+import com.trading.demo.strategy.Strategy.TradingDecision.Action;
 
 import java.util.HashMap;
 import java.util.Map;

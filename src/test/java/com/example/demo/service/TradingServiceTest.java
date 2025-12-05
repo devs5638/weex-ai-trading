@@ -1,14 +1,16 @@
 package com.example.demo.service;
 
-import com.example.demo.ai.AIClient;
-import com.example.demo.config.ApiConfig;
-import com.example.demo.exchange.WeexClient;
-import com.example.demo.strategy.AISignalStrategy;
-import com.example.demo.strategy.Strategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import com.trading.ai.AIClient;
+import com.trading.config.ApiConfig;
+import com.trading.demo.exchange.WeexClient;
+import com.trading.demo.service.TradingService;
+import com.trading.demo.strategy.AISignalStrategy;
+import com.trading.demo.strategy.Strategy;
 
 import java.util.HashMap;
 import java.util.Map;

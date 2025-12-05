@@ -1,10 +1,12 @@
 package com.example.demo.ai;
 
-import com.example.demo.config.ApiConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import com.trading.ai.AIClient;
+import com.trading.config.ApiConfig;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
