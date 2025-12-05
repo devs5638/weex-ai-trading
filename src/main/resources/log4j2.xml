@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="INFO">
+    <Appenders>
+        <!-- Console Appender -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+
+        <!-- Trading Log File Appender -->
+        <RollingFile name="TradingLog" fileName="logs/trading.log" 
+                     filePattern="logs/trading-%d{yyyy-MM-dd}.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{36} - %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+
+        <!-- AI Analysis Log File Appender -->
+        <RollingFile name="AIAnalysisLog" fileName="logs/ai_analysis.log" 
+                     filePattern="logs/ai_analysis-%d{yyyy-MM-dd}.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{36} - %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+
+        <!-- Error Log File Appender -->
+        <RollingFile name="ErrorLog" fileName="logs/error.log" 
+                     filePattern="logs/error-%d{yyyy-MM-dd}.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{36} - %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- Root Logger -->
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="ErrorLog" level="ERROR"/>
+        </Root>
+
+        <!-- Trading Service Logger -->
+        <Logger name="com.example.demo.service.TradingService" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="TradingLog"/>
+            <AppenderRef ref="ErrorLog" level="ERROR"/>
+        </Logger>
+
+        <!-- Weex Client Logger -->
+        <Logger name="com.example.demo.exchange.WeexClient" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="TradingLog"/>
+            <AppenderRef ref="ErrorLog" level="ERROR"/>
+        </Logger>
+
+        <!-- AI Client Logger -->
+        <Logger name="com.example.demo.ai.AIClient" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="AIAnalysisLog"/>
+            <AppenderRef ref="ErrorLog" level="ERROR"/>
+        </Logger>
+
+        <!-- Strategy Logger -->
+        <Logger name="com.example.demo.strategy" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="TradingLog"/>
+            <AppenderRef ref="ErrorLog" level="ERROR"/>
+        </Logger>
+
+        <!-- Controller Logger -->
+        <Logger name="com.example.demo.controller" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="TradingLog"/>
+            <AppenderRef ref="ErrorLog" level="ERROR"/>
+        </Logger>
+    </Loggers>
+</Configuration>
