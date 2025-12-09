@@ -5,6 +5,7 @@ import com.trading.ai.AIClient;
 import com.trading.ai.AIClient.TradingSignal;
 import com.trading.config.ApiConfig;
 import com.trading.exchange.WeexClient;
+import com.trading.model.AiReq;
 import com.trading.strategy.Strategy;
 import com.trading.strategy.Strategy.TradingDecision;
 
@@ -54,7 +55,7 @@ public class TradingService {
         }
 
         executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(this::executeTradeCycle, 0, apiConfig.getTradingInterval(), TimeUnit.MILLISECONDS);
+        executorService.scheduleAtFixedRate(this::executeTradeCycle, 0, 60000, TimeUnit.MILLISECONDS);
         
         isRunning = true;
         currentStatus = TradingStatus.RUNNING;
@@ -92,13 +93,29 @@ public class TradingService {
         try {
             logger.info("Starting trade cycle for symbol: {}", apiConfig.getTradingSymbol());
             currentStatus = TradingStatus.EXECUTING;
-            
-            // 1. 获取市场数据
+            AiReq req = new AiReq();
+            // 1. 获取市场价格
             Map<String, Object> marketData = weexClient.getMarketData(apiConfig.getTradingSymbol());
-            String marketDataString = objectMapper.writeValueAsString(marketData);
-            
+            String indexPrice = marketData.get("index").toString();
+            req.setPrice(indexPrice);
+            // 2. 获取当前余额
+            Map<String, Object> accountBalance = weexClient.getAccountBalance();
+            String balance =accountBalance.get("available").toString();
+            req.setBalance(balance);
+
+            // 查询当前仓位
+            final Map<String, Object> position = weexClient.getPosition();
+            if (position != null) {
+              req.setHasPosition(true);
+              req.setSide(position.get("side"));
+              req.setOpenValue(position.get("openValue"));
+              req.setUnrealizePnl(position.get("unrealizePnl"));
+              req.setLiquidatePrice(position.get("liquidatePrice"));
+              req.setAvgEntryPrice(position.get("avgEntryPrice"));
+            }
+            logger.info("Position: {}", objectMapper.writeValueAsString(req));
             // 2. 获取AI交易信号
-            TradingSignal aiSignal = aiClient.getTradingSignal(marketDataString);
+            TradingSignal aiSignal = aiClient.getTradingSignal(req);
             
             // 3. 根据策略生成交易决策
             TradingDecision decision = strategy.getTradingDecision(apiConfig.getTradingSymbol(), marketData, aiSignal);

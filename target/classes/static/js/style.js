@@ -2,17 +2,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     // 初始化页面数据
     loadBalance();
-    loadPrice();
-    loadPosition();
     loadHistory();
     loadStatus();
-
-    // 配置表单提交事件
-    const configForm = document.getElementById('config-form');
-    configForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        saveConfig();
-    });
 
     // 启动交易按钮事件
     const startBtn = document.getElementById('start-btn');
@@ -25,8 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 定时刷新数据
     setInterval(() => {
         loadBalance();
-        loadPrice();
-        loadPosition();
         loadStatus();
     }, 5000);
 });
@@ -108,7 +97,8 @@ function loadBalance() {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            document.getElementById('balance').textContent = 'USDT: ' + data.balance;
+            const accountBalance = data.accountBalance;
+            document.getElementById('balance').textContent = 'USDT: ' + accountBalance.available;
         }
     })
     .catch(error => {
@@ -182,7 +172,7 @@ function loadStatus() {
     .then(data => {
         if (data.status === 'success') {
             const statusElement = document.getElementById('status');
-            if (data.running) {
+            if (data.tradingStatus === 'RUNNING' || data.tradingStatus === 'EXECUTING') {
                 statusElement.textContent = '交易状态: 运行中';
                 statusElement.style.color = 'green';
             } else {
