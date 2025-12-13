@@ -2,8 +2,9 @@ package com.trading.ai;
 
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
 import com.trading.model.AiReq;
+import com.trading.model.TradingSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,6 @@ import java.util.Map;
 public class AIClient {
 
     private static final Logger logger = LoggerFactory.getLogger(AIClient.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
 
     private static final String AI_URL = "https://api.longcat.chat/openai/v1/chat/completions";
@@ -39,7 +39,7 @@ public class AIClient {
         List<Map<String, String>> messages = new ArrayList<>();
         Map<String, String> systemMessage = new HashMap<>();
         systemMessage.put("role", "system");
-        systemMessage.put("content", "你是一个专业的加密货币交易分析师，深耕币圈20年，具有丰富的经验，并且实时关注社会经济动态，了解加密政策的利好，能够根据提供的市场数据，给出明确的交易信号");
+        systemMessage.put("content", "你是一个专业的加密货币交易分析师，深耕币圈20年，具有丰富的经验，并且实时关注社会经济动态，了解加密政策的利好，能够根据提供的市场数据，必须每次给出明确的交易信号，可以手机近期的资讯以及利好和美国的一些政策");
         messages.add(systemMessage);
         
         Map<String, String> userMessage = new HashMap<>();
@@ -60,7 +60,7 @@ public class AIClient {
         requestBody.put("messages", messages);
         
         HttpResponse response = HttpRequest.post(AI_URL)
-            .body(objectMapper.writeValueAsString(requestBody))
+            .body(JSON.toJSONString(requestBody))
             .contentType("application/json")
             .header("Authorization", "Bearer " + AI_AK)
             .execute();
@@ -70,7 +70,7 @@ public class AIClient {
         logger.info("AI response: {}", responseString);
         
         // 解析响应
-        Map<String, Object> responseMap = objectMapper.readValue(responseString, Map.class);
+        Map<String, Object> responseMap = JSON.parseObject(responseString, Map.class);
         List<Map<String, Object>> choices = (List<Map<String, Object>>) responseMap.get("choices");
         Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
         String content = (String) message.get("content");
@@ -85,29 +85,6 @@ public class AIClient {
      * 解析AI返回的交易信号
      */
     public TradingSignal parseTradingSignal(String content) {
-        String signalContent = content.trim().toUpperCase();
-        
-        if (signalContent.contains("BUY")) {
-            return TradingSignal.BUY;
-        } else if (signalContent.contains("SELL")) {
-            return TradingSignal.SELL;
-        } else {
-            return TradingSignal.HOLD;
-        }
-    }
-
-    /**
-     * 格式化市场数据为AI输入格式
-     */
-    public String formatMarketData(String symbol, double price, double high, double low, double volume) {
-        return String.format("Symbol: %s\nCurrent Price: %.2f\n24h High: %.2f\n24h Low: %.2f\n24h Volume: %.2f",
-                symbol, price, high, low, volume);
-    }
-
-    /**
-     * 交易信号枚举
-     */
-    public enum TradingSignal {
-        BUY, SELL, HOLD
+        return JSON.parseObject(content, TradingSignal.class);
     }
 }

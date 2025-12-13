@@ -120,3 +120,65 @@ button {
 .trade-item:last-child {
     border-bottom: none;
 }
+
+/* Position table styles */
+.position-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.position-table th,
+.position-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.position-table th {
+    background-color: #2c3e50;
+    color: white;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+}
+
+.position-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.position-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.position-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Highlight positive and negative PnL */
+#position-unrealize-pnl.positive {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+#position-unrealize-pnl.negative {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+    .position-table {
+        font-size: 14px;
+    }
+    
+    .position-table th,
+    .position-table td {
+        padding: 8px 10px;
+    }
+}

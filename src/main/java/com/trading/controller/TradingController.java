@@ -86,26 +86,6 @@ public class TradingController {
         }
     }
 
-    /**
-     * 获取交易历史
-     */
-    @GetMapping("/history")
-    public ResponseEntity<Map<String, Object>> getTradeHistory() {
-        try {
-            List<TradingService.TradeRecord> history = tradingService.getTradeHistory();
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "success");
-            response.put("tradeCount", history.size());
-            response.put("tradeHistory", history);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("Error getting trade history: {}", e.getMessage(), e);
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "error");
-            response.put("message", "Failed to get trade history: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
 
     /**
      * 获取账户余额
@@ -143,6 +123,26 @@ public class TradingController {
             Map<String, Object> response = new HashMap<>();
             response.put("status", "error");
             response.put("message", "Failed to get market data: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * 获取当前持仓
+     */
+    @GetMapping("/position")
+    public ResponseEntity<Map<String, Object>> getPosition() {
+        try {
+            Map<String, Object> position = tradingService.getPosition();
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("position", position);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting position: {}", e.getMessage(), e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "error");
+            response.put("message", "Failed to get position: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }

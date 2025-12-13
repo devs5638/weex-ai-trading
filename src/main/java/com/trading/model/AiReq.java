@@ -39,7 +39,7 @@ public class AiReq {
     }
 
     public Object getSide() {
-        return side.equals("LONG")?"开多":"开空";
+        return side;
     }
 
     public void setSide(Object side) {
@@ -70,6 +70,14 @@ public class AiReq {
         this.liquidatePrice = liquidatePrice;
     }
 
+    public Object getAvgEntryPrice() {
+        return avgEntryPrice;
+    }
+
+    public void setAvgEntryPrice(Object avgEntryPrice) {
+        this.avgEntryPrice = avgEntryPrice;
+    }
+
     private String symbol;
     private String price;
     private String balance;
@@ -81,11 +89,5 @@ public class AiReq {
     private Object liquidatePrice; //预估强平价
     private Object avgEntryPrice; //开仓均价
 
-    public Object getAvgEntryPrice() {
-        return avgEntryPrice;
-    }
 
-    public void setAvgEntryPrice(Object avgEntryPrice) {
-        this.avgEntryPrice = avgEntryPrice;
-    }
 }

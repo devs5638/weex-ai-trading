@@ -1,14 +1,12 @@
 package com.trading.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
 import com.trading.ai.AIClient;
-import com.trading.ai.AIClient.TradingSignal;
 import com.trading.config.ApiConfig;
 import com.trading.exchange.WeexClient;
 import com.trading.model.AiReq;
-import com.trading.strategy.Strategy;
-import com.trading.strategy.Strategy.TradingDecision;
 
+import com.trading.model.TradingSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -25,12 +24,10 @@ import java.util.concurrent.TimeUnit;
 public class TradingService {
 
     private static final Logger logger = LoggerFactory.getLogger(TradingService.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final ApiConfig apiConfig;
     private final WeexClient weexClient;
     private final AIClient aiClient;
-    private final Strategy strategy;
 
     private ScheduledExecutorService executorService;
     private boolean isRunning = false;
@@ -38,11 +35,10 @@ public class TradingService {
     private TradingStatus currentStatus = TradingStatus.STOPPED;
 
     @Autowired
-    public TradingService(ApiConfig apiConfig, WeexClient weexClient, AIClient aiClient, Strategy strategy) {
+    public TradingService(ApiConfig apiConfig, WeexClient weexClient, AIClient aiClient) {
         this.apiConfig = apiConfig;
         this.weexClient = weexClient;
         this.aiClient = aiClient;
-        this.strategy = strategy;
     }
 
     /**
@@ -113,16 +109,16 @@ public class TradingService {
               req.setLiquidatePrice(position.get("liquidatePrice"));
               req.setAvgEntryPrice(position.get("avgEntryPrice"));
             }
-            logger.info("Position: {}", objectMapper.writeValueAsString(req));
+            logger.info("Position: {}", JSON.toJSONString(req));
             // 2. 获取AI交易信号
-            TradingSignal aiSignal = aiClient.getTradingSignal(req);
-            
+            TradingSignal tradingSignal = aiClient.getTradingSignal(req);
+
             // 3. 根据策略生成交易决策
-            TradingDecision decision = strategy.getTradingDecision(apiConfig.getTradingSymbol(), marketData, aiSignal);
+//            TradingDecision decision = strategy.getTradingDecision(apiConfig.getTradingSymbol(), marketData, aiSignal);
             
             // 4. 执行交易决策
-            if (decision.getAction() != TradingDecision.Action.HOLD) {
-                executeTrade(decision);
+            if (!Objects.equals(tradingSignal.getOperation(), "HOLD")) {
+                executeTrade(tradingSignal);
             } else {
                 logger.info("Hold decision, no trade executed");
             }
@@ -140,32 +136,19 @@ public class TradingService {
     /**
      * 执行交易
      */
-    private void executeTrade(TradingDecision decision) throws Exception {
-        logger.info("Executing trade: {} {} {} at price {}", 
-                decision.getAction(), apiConfig.getTradingSymbol(), decision.getAmount(), decision.getPrice());
+    private void executeTrade(TradingSignal tradingSignal) throws Exception {
+        logger.info("Executing trade: {} {} {}",
+                tradingSignal.getOperation(), apiConfig.getTradingSymbol(), tradingSignal.getAmount());
         
         Map<String, Object> result;
-        String side = decision.getAction() == TradingDecision.Action.BUY ? "BUY" : "SELL";
-        
+
         // 执行市价订单
-        result = weexClient.createMarketOrder(apiConfig.getTradingSymbol(), side, decision.getAmount());
-        
-        // 记录交易
-        TradeRecord record = new TradeRecord(
-                System.currentTimeMillis(),
-                apiConfig.getTradingSymbol(),
-                decision.getAction(),
-                decision.getPrice(),
-                decision.getAmount(),
-                result,
-                decision.getReason()
-        );
-        
-        synchronized (tradeHistory) {
-            tradeHistory.add(record);
+        try {
+            weexClient.createMarketOrder(apiConfig.getTradingSymbol(), tradingSignal);
+        } catch (Exception e) {
+            logger.error("Error executing market order: {}", e.getMessage(), e);
         }
-        
-        logger.info("Trade executed successfully: {}", record);
+
     }
 
     /**
@@ -175,14 +158,6 @@ public class TradingService {
         return currentStatus;
     }
 
-    /**
-     * 获取交易历史
-     */
-    public List<TradeRecord> getTradeHistory() {
-        synchronized (tradeHistory) {
-            return new ArrayList<>(tradeHistory);
-        }
-    }
 
     /**
      * 获取账户余额
@@ -199,6 +174,22 @@ public class TradingService {
     }
 
     /**
+     * 获取当前持仓
+     */
+    public Map<String, Object> getPosition() throws Exception {
+        return weexClient.getPosition();
+    }
+
+    /**
+     * 获取交易历史
+     */
+    public List<TradeRecord> getTradeHistory() {
+        synchronized (tradeHistory) {
+            return new ArrayList<>(tradeHistory);
+        }
+    }
+
+    /**
      * 交易状态枚举
      */
     public enum TradingStatus {
@@ -211,13 +202,13 @@ public class TradingService {
     public static class TradeRecord {
         private final long timestamp;
         private final String symbol;
-        private final TradingDecision.Action action;
+        private final String action;
         private final double price;
         private final double amount;
         private final Map<String, Object> result;
         private final String reason;
         
-        public TradeRecord(long timestamp, String symbol, TradingDecision.Action action, double price, double amount, Map<String, Object> result, String reason) {
+        public TradeRecord(long timestamp, String symbol, String action, double price, double amount, Map<String, Object> result, String reason) {
             this.timestamp = timestamp;
             this.symbol = symbol;
             this.action = action;
@@ -236,7 +227,7 @@ public class TradingService {
             return symbol;
         }
         
-        public TradingDecision.Action getAction() {
+        public String getAction() {
             return action;
         }
         
@@ -268,4 +259,5 @@ public class TradingService {
                     '}';
         }
     }
+
 }

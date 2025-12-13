@@ -2,16 +2,16 @@
 
 ## 项目概述
 
-本项目是一个基于 Spring Boot 的自动交易工具，集成了 Weex 交易所 API 和 DeepSeek AI API，实现了基于 AI 分析的加密货币自动交易功能。
+本项目是一个基于 Spring Boot 的自动交易工具，集成了 Weex 交易所 API 和 LongCat AI API，实现了基于 AI 分析的加密货币自动交易功能。
 
 ## 技术栈
 
 - **后端框架**: Spring Boot 3.3.0
 - **Java 版本**: Java 17
-- **HTTP 客户端**: Apache HttpClient 5
-- **JSON 处理**: Jackson
+- **HTTP 客户端**: Hutool Http 客户端
+- **JSON 处理**: FastJSON 2
 - **日志系统**: Log4j2
-- **AI 接口**: DeepSeek API
+- **AI 接口**: LongCat AI API
 - **交易所**: Weex API
 
 ## 环境要求
@@ -19,7 +19,7 @@
 - JDK 17 或更高版本
 - Maven 3.6 或更高版本
 - Weex 交易所 API 密钥
-- DeepSeek API 密钥
+- LongCat AI API 密钥
 
 ## 安装步骤
 
@@ -42,14 +42,12 @@ mvn clean install
 
 ```properties
 # Weex Exchange API Configuration
-weex.api.url=https://api.weex.com
 weex.api.key=your_weex_api_key
 weex.api.secret=your_weex_api_secret
 weex.api.passphrase=your_weex_api_passphrase
 
-# DeepSeek AI API Configuration
-deepseek.api.url=https://api.deepseek.com
-deepseek.api.key=your_deepseek_api_key
+# LongCat AI API Configuration
+longcat.api.key=your_longcat_api_key
 ```
 
 ### 4. 配置交易参数
@@ -58,13 +56,13 @@ deepseek.api.key=your_deepseek_api_key
 
 ```properties
 # Trading Configuration
-weex.trading.symbol=BTCUSDT
+weex.trading.symbol=cmt_btcusdt
 weex.trading.amount=100
 weex.trading.interval=60000
 weex.trading.strategy=aiSignal
 ```
 
-- `weex.trading.symbol`: 交易对（如 BTCUSDT）
+- `weex.trading.symbol`: 交易对（如 cmt_btcusdt）
 - `weex.trading.amount`: 交易金额（美元）
 - `weex.trading.interval`: 交易间隔（毫秒）
 - `weex.trading.strategy`: 交易策略（目前仅支持 aiSignal）
@@ -76,6 +74,28 @@ mvn spring-boot:run
 ```
 
 项目将在 http://localhost:8080 启动。
+
+## 功能说明
+
+### 1. 实时数据展示
+
+- **账户总权益**: 显示账户的总权益，计算公式为：账户余额 + 未实现盈亏 + 账户保证金
+- **账户余额**: 显示账户的可用余额
+
+### 2. 交易控制
+
+- **启动交易**: 启动自动交易服务
+- **停止交易**: 停止自动交易服务
+
+### 3. 当前持仓
+
+显示当前持仓信息，包括：
+- **持仓方向**: 显示开多或开空
+- **持仓数量**: 显示当前持仓的数量
+- **开仓均价**: 显示开仓均价
+- **未实现盈亏**: 显示当前持仓的未实现盈亏，盈利显示绿色，亏损显示红色
+- **强平价格**: 显示强平价格
+- **账户保证金**: 显示账户保证金
 
 ## API 接口说明
 
@@ -126,12 +146,13 @@ mvn spring-boot:run
   "tradeCount": 5,
   "tradeHistory": [
     {
-      "timestamp": "2023-07-15T14:30:00Z",
+      "timestamp": 1765616422000,
+      "symbol": "cmt_btcusdt",
       "action": "BUY",
-      "symbol": "BTCUSDT",
-      "price": 30000,
-      "amount": 100,
-      "status": "SUCCESS"
+      "price": 0.0,
+      "amount": 100.0,
+      "result": {},
+      "reason": "AI signal generated trade"
     }
   ]
 }
@@ -146,8 +167,10 @@ mvn spring-boot:run
 {
   "status": "success",
   "accountBalance": {
-    "USDT": 10000,
-    "BTC": 0.05
+    "available": "10000.00",
+    "equity": "10000.00",
+    "frozen": "0.00",
+    "unrealizePnl": "0.00"
   }
 }
 ```
@@ -161,11 +184,27 @@ mvn spring-boot:run
 {
   "status": "success",
   "marketData": {
-    "symbol": "BTCUSDT",
-    "price": 30000,
-    "high": 31000,
-    "low": 29000,
-    "volume": 1000000
+    "index": "30000.00",
+    "symbol": "cmt_btcusdt"
+  }
+}
+```
+
+### 7. 获取当前持仓
+
+**GET** `/api/trading/position`
+
+**响应示例**:
+```json
+{
+  "status": "success",
+  "position": {
+    "side": "long",
+    "size": "100",
+    "avgEntryPrice": "30000.00",
+    "unrealizePnl": "100.00",
+    "liquidatePrice": "29000.00",
+    "marginSize": "500.00"
   }
 }
 ```
@@ -188,23 +227,39 @@ mvn spring-boot:run
 
 ## 开发说明
 
-### 添加新的交易策略
+### 项目结构
 
-1. 创建新的策略类，实现 `Strategy` 接口
-2. 在 `TradingService` 中注册新策略
-3. 在 `application.properties` 中配置新策略
+```
+/src
+  /main
+    /java/com/trading
+      /ai          # AI 客户端相关代码
+      /config      # 配置相关代码
+      /controller  # 控制器相关代码
+      /exchange    # 交易所客户端相关代码
+      /model       # 数据模型相关代码
+      /service     # 服务层相关代码
+      /strategy    # 交易策略相关代码
+      TradeApplication.java  # 应用程序入口
+    /resources
+      /static      # 静态资源
+      /templates   # 模板文件
+      application.properties  # 配置文件
+      log4j2.xml   # 日志配置文件
+```
 
-### 扩展 AI 分析功能
+### 核心组件
 
-修改 `AIClient` 类，集成更多 AI 模型或分析方法。
+1. **TradeApplication**: 应用程序入口，启动 Spring Boot 应用
+2. **TradingService**: 核心交易服务，管理交易状态和执行交易逻辑
+3. **AIClient**: AI 客户端，调用 AI API 获取交易信号
+4. **WeexClient**: 交易所客户端，调用 Weex API 执行交易操作
+5. **Strategy**: 交易策略接口，定义交易决策逻辑
 
 ## 许可证
 
 本项目采用 MIT 许可证。
 
-## 联系方式
+## 页面功能展示
 
-如有问题或建议，请通过以下方式联系：
-
-- 邮箱: example@example.com
-- GitHub: https://github.com/example/weex-ai-trading
+![img.png](img.png)

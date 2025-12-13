@@ -4,7 +4,8 @@ import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
+import com.trading.model.TradingSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -24,7 +25,6 @@ import java.util.UUID;
 public class WeexClient {
 
     private static final Logger logger = LoggerFactory.getLogger(WeexClient.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
     // 合约API基础URL（从配置中获取，应设置为 https://api-contract.weex.com/capi/v2）
     private static final String API_KEY = "weex_045c783182b43aea80332292326458a7"; // 替换为实际的 API Key
     private static final String SECRET_KEY = "aecbf1cbe853a7201186c26963f7cdefb6336a5f79c1aa8bbe501521f3cb6545"; // 替换为实际的 Secret Key
@@ -40,7 +40,7 @@ public class WeexClient {
         String responseString = sendRequestGet(API_KEY, SECRET_KEY, ACCESS_PASSPHRASE, "GET", requestPath, queryString);
 
         logger.info("Market data response: {}", responseString);
-        return objectMapper.readValue(responseString, Map.class);
+        return JSON.parseObject(responseString, Map.class);
     }
 
     public Map<String, Object> getPosition() throws Exception {
@@ -67,7 +67,8 @@ public class WeexClient {
             result.put("side", usdtAccount.getStr("side"));
             result.put("openValue", usdtAccount.getStr("openValue"));
             result.put("size", usdtAccount.getStr("size"));
-            
+            result.put("marginSize", usdtAccount.getStr("marginSize"));
+
             // 计算开仓均价：Position.avgEntryPrice = round( Position.openValue / Position.size, Contract.tickSize)
             // 假设cmt_btcusdt合约的tickSize为0.1（实际值需要根据合约信息获取）
             final BigDecimal tickSize = new BigDecimal("0.1");
@@ -98,7 +99,7 @@ public class WeexClient {
         } else {
             // 如果没有找到USDT信息，返回空Map或抛出异常
             logger.warn("No cmt_btcusdt singlePosition found in response");
-            return new HashMap<>();
+            return null;
         }
     }
 
@@ -144,24 +145,23 @@ public class WeexClient {
     /**
      * 创建市价订单（合约API）
      */
-    public Map<String, Object> createMarketOrder(String symbol, String side, double amount) throws Exception {
+    public Map<String, Object> createMarketOrder(String symbol, TradingSignal tradingSignal) throws Exception {
         String requestPath = "/capi/v2/order/placeOrder";
         
         Map<String, Object> orderParams = new HashMap<>();
         orderParams.put("symbol", symbol);
         orderParams.put("client_oid", UUID.randomUUID().toString()); // 自定义订单号（不超过40个字符）
-        orderParams.put("side", side); // BUY or SELL
-        orderParams.put("type", "market"); // 1:开多 2:开空 3:平多 4:平空
-        orderParams.put("size", new BigDecimal(amount)); // 下单数量
+        orderParams.put("type", tradingSignal.getType()); // 1:开多 2:开空 3:平多 4:平空
+        orderParams.put("size", new BigDecimal(tradingSignal.getAmount())); // 下单数量
         orderParams.put("order_type", 0); // 0:普通，1:只做maker；2:全部成交或立即取消；3:立即成交并取消剩余
         orderParams.put("match_price", 1); // 0:限价，1:市价
 
-        String requestBody = objectMapper.writeValueAsString(orderParams);
+        String requestBody = JSON.toJSONString(orderParams);
         String response = sendRequestPost(API_KEY, SECRET_KEY, ACCESS_PASSPHRASE, "POST", requestPath, "", requestBody);
 
 
         logger.info("Create market order response: {}", response);
-        return objectMapper.readValue(response, Map.class);
+        return JSON.parseObject(response, Map.class);
     }
 
 

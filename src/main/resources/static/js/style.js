@@ -1,9 +1,17 @@
+// 全局变量，用于保存余额、未实现盈亏和账户保证金
+let currentBalance = 0;
+let currentUnrealizePnl = 0;
+let currentMarginSize = 0;
+
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', function() {
     // 初始化页面数据
     loadBalance();
-    loadHistory();
+    loadPosition();
     loadStatus();
+    
+    // 初始化总权益显示
+    document.getElementById('total-equity').textContent = 'USDT: 0.00';
 
     // 启动交易按钮事件
     const startBtn = document.getElementById('start-btn');
@@ -16,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 定时刷新数据
     setInterval(() => {
         loadBalance();
+        loadPosition();
         loadStatus();
     }, 5000);
 });
@@ -98,12 +107,22 @@ function loadBalance() {
     .then(data => {
         if (data.status === 'success') {
             const accountBalance = data.accountBalance;
+            // 保存余额值到全局变量
+            currentBalance = parseFloat(accountBalance.available) || 0;
             document.getElementById('balance').textContent = 'USDT: ' + accountBalance.available;
+            // 计算并更新总权益
+            calculateTotalEquity();
         }
     })
     .catch(error => {
         console.error('加载余额出错:', error);
     });
+}
+
+// 计算并更新账户总权益
+function calculateTotalEquity() {
+    const totalEquity = currentBalance + currentUnrealizePnl + currentMarginSize;
+    document.getElementById('total-equity').textContent = 'USDT: ' + totalEquity.toFixed(2);
 }
 
 // 加载当前价格
@@ -120,13 +139,68 @@ function loadPrice() {
     });
 }
 
-// 加载持仓量
+// 加载当前持仓
 function loadPosition() {
     fetch('/api/trading/position')
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            document.getElementById('position').textContent = 'BTC: ' + data.position;
+            const position = data.position;
+            const unrealizePnlElement = document.getElementById('position-unrealize-pnl');
+            
+            if (position) {
+                // 转换持仓方向显示文本
+                let sideText = position.side;
+                if (sideText.toLowerCase() === 'long') {
+                    sideText = '开多';
+                } else if (sideText.toLowerCase() === 'short') {
+                    sideText = '开空';
+                }
+                document.getElementById('position-side').textContent = sideText;
+                document.getElementById('position-size').textContent = position.size;
+                document.getElementById('position-open-value').textContent = position.avgEntryPrice;
+                document.getElementById('position-liquidate-price').textContent = position.liquidatePrice;
+                
+                // 设置账户保证金
+                const marginSize = position.marginSize || '0';
+                document.getElementById('position-margin-size').textContent = marginSize;
+                currentMarginSize = parseFloat(marginSize) || 0;
+                
+                // 设置盈亏值并添加样式
+                const unrealizePnl = position.unrealizePnl;
+                unrealizePnlElement.textContent = unrealizePnl;
+                currentUnrealizePnl = parseFloat(unrealizePnl) || 0;
+                
+                // 移除之前的样式类
+                unrealizePnlElement.classList.remove('positive', 'negative');
+                
+                // 添加正负样式
+                if (currentUnrealizePnl > 0) {
+                    unrealizePnlElement.classList.add('positive');
+                } else if (currentUnrealizePnl < 0) {
+                    unrealizePnlElement.classList.add('negative');
+                }
+                
+                // 计算并更新总权益
+                calculateTotalEquity();
+            } else {
+                document.getElementById('position-side').textContent = '无持仓';
+                document.getElementById('position-size').textContent = '0';
+                document.getElementById('position-open-value').textContent = '0';
+                document.getElementById('position-liquidate-price').textContent = 'N/A';
+                document.getElementById('position-margin-size').textContent = '0';
+                
+                // 无持仓时重置盈亏样式和值
+                unrealizePnlElement.textContent = '0';
+                unrealizePnlElement.classList.remove('positive', 'negative');
+                
+                // 重置全局变量
+                currentMarginSize = 0;
+                currentUnrealizePnl = 0;
+                
+                // 计算并更新总权益
+                calculateTotalEquity();
+            }
         }
     })
     .catch(error => {
