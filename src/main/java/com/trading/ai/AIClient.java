@@ -39,7 +39,7 @@ public class AIClient {
         List<Map<String, String>> messages = new ArrayList<>();
         Map<String, String> systemMessage = new HashMap<>();
         systemMessage.put("role", "system");
-        systemMessage.put("content", "你是一个专业的加密货币交易分析师，深耕币圈20年，具有丰富的经验，并且实时关注社会经济动态，了解加密政策的利好，能够根据提供的市场数据，必须每次给出明确的交易信号，可以手机近期的资讯以及利好和美国的一些政策");
+        systemMessage.put("content", "你是一个专业的加密货币交易分析师，深耕币圈20年，具有丰富的经验，并且实时关注社会经济动态，了解加密政策的利好，能够根据网络上实时的市场数据，必须每次给出明确的交易信号，可以收集近期的资讯以及利好和美国的一些政策来决策");
         messages.add(systemMessage);
         
         Map<String, String> userMessage = new HashMap<>();
@@ -51,9 +51,9 @@ public class AIClient {
                     + " 未实现盈亏：" + req.getUnrealizePnl()
                     + " 预估强平价：" + req.getLiquidatePrice()
                     + " 当前可用账户余额：" + req.getBalance()
-                    + "，请根据这些数据给出本次的交易信号, 交易信号只能是三个维度: 操作： BUY, SELL, HOLD; 开单方向： LONG, SHORT；购买金额。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"amount\":...}");
+                    + "，请根据这些数据给出本次的交易信号, 交易信号只能是三个维度: operation操作： BUY, SELL, HOLD; side开单方向： LONG, SHORT；amount本次购买金额:usdt单位。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"amount\":...}");
         } else {
-            userMessage.put("content", " btc的当前价格" + req.getPrice() + ", 当前没有持仓，请给出本次的交易信号,  交易信号只能是三个维度: 操作： BUY, SELL, HOLD; 开单方向： LONG, SHORT；购买金额。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"amount\":...}");
+            userMessage.put("content", " btc的当前价格" + req.getPrice() + ", 当前没有持仓，请必须明确给出本次的交易信号,  交易信号只能是三个维度: operation操作： BUY, SELL, HOLD; side开单方向： LONG, SHORT；amount本次购买金额:usdt单位。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"amount\":...}");
         }
         messages.add(userMessage);
         
