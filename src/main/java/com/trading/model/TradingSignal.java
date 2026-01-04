@@ -48,6 +48,14 @@ public class TradingSignal {
     public   String side ;
     public   Integer amount;
     public   Integer type;
+    public   String reason;
+    public   String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
 
 
 

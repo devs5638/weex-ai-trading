@@ -26,16 +26,26 @@ public class WeexClient {
 
     private static final Logger logger = LoggerFactory.getLogger(WeexClient.class);
     // 合约API基础URL（从配置中获取，应设置为 https://api-contract.weex.com/capi/v2）
-    private static final String API_KEY = "weex_c8ee66ea5805ba73b4700a4e195ac4f9"; // 替换为实际的 API Key
-    private static final String SECRET_KEY = "8da9b7da4c370e0d6f7caceb6daab7d91ca4ce16b3f008178059544e1331bf09"; // 替换为实际的 Secret Key
-    private static final String ACCESS_PASSPHRASE = "weex59626266"; // 替换为实际的 Access Passphrase
+    // prod
+//    private static final String API_KEY = "weex_c8ee66ea5805ba73b4700a4e195ac4f9"; // 替换为实际的 API Key
+//    private static final String SECRET_KEY = "8da9b7da4c370e0d6f7caceb6daab7d91ca4ce16b3f008178059544e1331bf09"; // 替换为实际的 Secret Key
+//    private static final String ACCESS_PASSPHRASE = "weex59626266"; // 替换为实际的 Access Passphrase
+//    private static final String BASE_URL = "https://api-contract.weex.com";//231231
+
+
+    // beta
     private static final String BASE_URL = "https://api-contract.weex.com";//231231
+    private static final String API_KEY = "weex_50c46f8a5a1dc7dad15db6aae5ccb0d7"; // 替换为实际的 API Key
+    private static final String SECRET_KEY = "ce73071a59ca294bf09150a1811962ce5f19d35b502545a03d6332a5b806e1ea"; // 替换为实际的 Secret Key
+    private static final String ACCESS_PASSPHRASE = "weex417294681"; // 替换为实际的 Access Passphrase
 
 
+    // stg
 //    private static final String BASE_URL = "https://stg-pro-openapi.weex.tech";//231231
 //    private static final String API_KEY = "weex_045c783182b43aea80332292326458a7"; // 替换为实际的 API Key
 //    private static final String SECRET_KEY = "aecbf1cbe853a7201186c26963f7cdefb6336a5f79c1aa8bbe501521f3cb6545"; // 替换为实际的 Secret Key
 //    private static final String ACCESS_PASSPHRASE = "test011111111"; // 替换为实际的 Access Passphrase
+
 
     /**
      * 获取市场行情数据（使用合约API）
@@ -49,9 +59,24 @@ public class WeexClient {
         return JSON.parseObject(responseString, Map.class);
     }
 
+    /**
+     * 获取历史K线数据
+     * @param symbol 交易对符号，如 cmt_bchusdt
+     * @param granularity K线粒度，如 1m, 5m, 15m, 1h, 4h, 1d 等
+     * @return K线数据数组，每个元素包含 [时间戳, 开盘价, 最高价, 最低价, 收盘价, 交易币成交量, 计价币成交量]
+     */
+    public JSONArray getHistoryCandles(String symbol, String granularity) throws Exception {
+        String requestPath = "/capi/v2/market/historyCandles";
+        String queryString = "?symbol=" + symbol + "&granularity=" + granularity;
+        String responseString = sendRequestGet(API_KEY, SECRET_KEY, ACCESS_PASSPHRASE, "GET", requestPath, queryString);
+
+        logger.info("History candles response: {}", responseString);
+        return new JSONArray(responseString);
+    }
+
     public Map<String, Object> getPosition() throws Exception {
         String requestPath = "/capi/v2/account/position/singlePosition";
-        String queryString = "?symbol=cmt_btcusdt";
+        String queryString = "?symbol=cmt_dogeusdt";
         String responseString = sendRequestGet(API_KEY, SECRET_KEY, ACCESS_PASSPHRASE, "GET", requestPath, queryString);
         logger.info("singlePosition data response: {}", responseString);
         // 解析响应并过滤USDT数据
@@ -60,7 +85,7 @@ public class WeexClient {
         // 查找USDT的账户信息
         Optional<JSONObject> usdtAccountOpt = jsonArray.stream()
                 .map(item -> new JSONObject((Map<String, Object>) item))
-                .filter(account -> "cmt_btcusdt".equals(account.getStr("symbol")))
+                .filter(account -> "cmt_dogeusdt".equals(account.getStr("symbol")))
                 .findFirst();
 
         if (usdtAccountOpt.isPresent()) {
@@ -104,7 +129,7 @@ public class WeexClient {
             return result;
         } else {
             // 如果没有找到USDT信息，返回空Map或抛出异常
-            logger.warn("No cmt_btcusdt singlePosition found in response");
+            logger.warn("No cmt_dogeusdt singlePosition found in response");
             return null;
         }
     }
@@ -158,7 +183,7 @@ public class WeexClient {
         orderParams.put("symbol", symbol);
         orderParams.put("client_oid", UUID.randomUUID().toString()); // 自定义订单号（不超过40个字符）
         orderParams.put("type", tradingSignal.getType()); // 1:开多 2:开空 3:平多 4:平空
-        orderParams.put("size", "0.0001"); // 下单数量
+        orderParams.put("size", (3600*5)); // 下单数量
         orderParams.put("order_type", 0); // 0:普通，1:只做maker；2:全部成交或立即取消；3:立即成交并取消剩余
         orderParams.put("match_price", 1); // 0:限价，1:市价
 
@@ -167,6 +192,36 @@ public class WeexClient {
 
 
         logger.info("Create market order response: {}", response);
+        return JSON.parseObject(response, Map.class);
+    }
+
+    /**
+     * 上传AI日志到指定接口
+     * @param orderId 订单ID，可为null
+     * @param stage 阶段，如"Decision Making"
+     * @param model 模型名称，如"GPT-5-mini"
+     * @param input 输入内容，包含prompt等信息
+     * @param output 输出内容，包含AI响应等信息
+     * @param explanation 解释说明
+     * @return 接口响应结果
+     */
+    public Map<String, Object> uploadAiLog(String orderId, String stage, String model, 
+                                           Map<String, Object> input, Map<String, Object> output, 
+                                           String explanation) throws Exception {
+        String requestPath = "/capi/v2/order/uploadAiLog";
+        
+        Map<String, Object> logParams = new HashMap<>();
+        logParams.put("orderId", orderId);
+        logParams.put("stage", stage);
+        logParams.put("model", model);
+        logParams.put("input", input);
+        logParams.put("output", output);
+        logParams.put("explanation", explanation);
+
+        String requestBody = JSON.toJSONString(logParams);
+        String response = sendRequestPost(API_KEY, SECRET_KEY, ACCESS_PASSPHRASE, "POST", requestPath, "", requestBody);
+
+        logger.info("Upload AI log response: {}", response);
         return JSON.parseObject(response, Map.class);
     }
 

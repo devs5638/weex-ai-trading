@@ -8,7 +8,7 @@ public class ApiConfig {
     
 
     // 交易配置
-    @Value("${trading.symbol:cmt_btcusdt}")
+    @Value("${trading.symbol:cmt_dogeusdt}")
     private String tradingSymbol;
     
 

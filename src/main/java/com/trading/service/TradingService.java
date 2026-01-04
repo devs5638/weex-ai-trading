@@ -51,7 +51,7 @@ public class TradingService {
         }
 
         executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(this::executeTradeCycle, 0, 60000, TimeUnit.MILLISECONDS);
+        executorService.scheduleAtFixedRate(this::executeTradeCycle, 0, 5, TimeUnit.MINUTES);
         
         isRunning = true;
         currentStatus = TradingStatus.RUNNING;
@@ -90,6 +90,8 @@ public class TradingService {
             logger.info("Starting trade cycle for symbol: {}", apiConfig.getTradingSymbol());
             currentStatus = TradingStatus.EXECUTING;
             AiReq req = new AiReq();
+            // 设置交易对符号
+            req.setSymbol(apiConfig.getTradingSymbol());
             // 1. 获取市场价格
             Map<String, Object> marketData = weexClient.getMarketData(apiConfig.getTradingSymbol());
             String indexPrice = marketData.get("index").toString();
