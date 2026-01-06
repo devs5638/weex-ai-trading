@@ -78,7 +78,7 @@ public class AIClient {
                     "index[4]\tString\t收盘价\n" +
                     "index[5]\tString\t交易币成交量\n" +
                     "index[6]\tString\t计价币成交量"
-                    + " 生成策略信号如下：请根据这些数据给出本次的交易信号, 交易信号包含4个内容: operation操作： BUY, SELL,HOLD; side开单方向： LONG（开多）, SHORT（开空）;amount本次购买金额:usdt单位; reason:一句话总结给出本次交易信号的原因控制在100个字。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"reason\":\"...\"}"
+                    + " 生成策略信号如下：请根据这些数据给出本次的交易信号, 交易信号包含4个内容: operation操作： BUY,HOLD; side开单方向： LONG（开多）, SHORT（开空）;amount本次购买金额:usdt单位; reason:一句话总结给出本次交易信号的原因控制在100个字。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"reason\":\"...\"}"
                     + " 信号结果可以参考以下几个角度：" +
                     " 1、如果未实现盈亏<-10,直接返回 SELL 信号"+
                     " 2、如果未实现盈亏>30,直接返回 SELL 信号"+
@@ -87,7 +87,7 @@ public class AIClient {
         } else {
             userMessage.put("content", " doge的当前价格" + req.getPrice() 
                     + candlesData
-                    + ", 当前没有持仓，请必须明确给出本次的交易信号,  交易信号包含4个内容: operation操作： BUY, SELL,HOLD; side开单方向： LONG（开多）, SHORT（开空）;amount本次购买金额:usdt单位; reason:一句话总结给出本次交易信号的原因控制在100个字。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"reason\":\"...\"}");
+                    + ", 按照当前行情，请必须明确给出本次的交易信号,  交易信号包含4个内容: operation操作： BUY,HOLD; side开单方向： LONG（开多）, SHORT（开空）;amount本次购买金额:usdt单位; reason:一句话总结给出本次交易信号的原因控制在100个字。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"reason\":\"...\"}");
         }
         messages.add(userMessage);
         
@@ -121,7 +121,6 @@ public class AIClient {
             logger.error("Failed to upload AI log: {}", e.getMessage(), e);
             // 日志上报失败不影响主流程，只记录错误
         }
-        
         return tradingSignal;
     }
 

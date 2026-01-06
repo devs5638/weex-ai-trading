@@ -117,7 +117,7 @@ public class TradingService {
 
             // 3. 根据策略生成交易决策
 //            TradingDecision decision = strategy.getTradingDecision(apiConfig.getTradingSymbol(), marketData, aiSignal);
-            
+
             // 4. 执行交易决策
             if (!Objects.equals(tradingSignal.getOperation(), "HOLD")) {
                 executeTrade(tradingSignal);
