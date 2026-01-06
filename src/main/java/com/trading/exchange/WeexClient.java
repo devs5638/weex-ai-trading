@@ -27,10 +27,10 @@ public class WeexClient {
     private static final Logger logger = LoggerFactory.getLogger(WeexClient.class);
     // 合约API基础URL（从配置中获取，应设置为 https://api-contract.weex.com/capi/v2）
     // prod
-//    private static final String API_KEY = "weex_c8ee66ea5805ba73b4700a4e195ac4f9"; // 替换为实际的 API Key
-//    private static final String SECRET_KEY = "8da9b7da4c370e0d6f7caceb6daab7d91ca4ce16b3f008178059544e1331bf09"; // 替换为实际的 Secret Key
-//    private static final String ACCESS_PASSPHRASE = "weex59626266"; // 替换为实际的 Access Passphrase
-//    private static final String BASE_URL = "https://api-contract.weex.com";//231231
+    private static final String API_KEY = "weex_c8ee66ea5805ba73b4700a4e195ac4f9"; // 替换为实际的 API Key
+    private static final String SECRET_KEY = "8da9b7da4c370e0d6f7caceb6daab7d91ca4ce16b3f008178059544e1331bf09"; // 替换为实际的 Secret Key
+    private static final String ACCESS_PASSPHRASE = "weex59626266"; // 替换为实际的 Access Passphrase
+    private static final String BASE_URL = "https://api-contract.weex.com";//231231
 
 
     // beta
@@ -41,10 +41,10 @@ public class WeexClient {
 //
 
     // stg
-    private static final String BASE_URL = "https://stg-pro-openapi.weex.tech";//231231
-    private static final String API_KEY = "weex_045c783182b43aea80332292326458a7"; // 替换为实际的 API Key
-    private static final String SECRET_KEY = "aecbf1cbe853a7201186c26963f7cdefb6336a5f79c1aa8bbe501521f3cb6545"; // 替换为实际的 Secret Key
-    private static final String ACCESS_PASSPHRASE = "test011111111"; // 替换为实际的 Access Passphrase
+//    private static final String BASE_URL = "https://stg-pro-openapi.weex.tech";//231231
+//    private static final String API_KEY = "weex_045c783182b43aea80332292326458a7"; // 替换为实际的 API Key
+//    private static final String SECRET_KEY = "aecbf1cbe853a7201186c26963f7cdefb6336a5f79c1aa8bbe501521f3cb6545"; // 替换为实际的 Secret Key
+//    private static final String ACCESS_PASSPHRASE = "test011111111"; // 替换为实际的 Access Passphrase
 
 
     /**
@@ -174,22 +174,29 @@ public class WeexClient {
     }
 
     /**
-     * 创建市价订单（合约API）
+     * 创建市价订单（合约API）——基于 TradingSignal
      */
     public Map<String, Object> createMarketOrder(String symbol, TradingSignal tradingSignal) throws Exception {
+        // 兼容原有逻辑，默认 size 仍然使用固定值
+        return createMarketOrder(symbol, tradingSignal.getType(), 3600);
+    }
+
+    /**
+     * 创建市价订单（合约API）——显式传入 type 与 size
+     */
+    public Map<String, Object> createMarketOrder(String symbol, int type, int size) throws Exception {
         String requestPath = "/capi/v2/order/placeOrder";
-        
+
         Map<String, Object> orderParams = new HashMap<>();
         orderParams.put("symbol", symbol);
         orderParams.put("client_oid", UUID.randomUUID().toString()); // 自定义订单号（不超过40个字符）
-        orderParams.put("type", tradingSignal.getType()); // 1:开多 2:开空 3:平多 4:平空
-        orderParams.put("size", (3600)); // 下单数量
+        orderParams.put("type", type); // 1:开多 2:开空 3:平多 4:平空
+        orderParams.put("size", size); // 下单数量
         orderParams.put("order_type", 0); // 0:普通，1:只做maker；2:全部成交或立即取消；3:立即成交并取消剩余
         orderParams.put("match_price", 1); // 0:限价，1:市价
 
         String requestBody = JSON.toJSONString(orderParams);
         String response = sendRequestPost(API_KEY, SECRET_KEY, ACCESS_PASSPHRASE, "POST", requestPath, "", requestBody);
-
 
         logger.info("Create market order response: {}", response);
         return JSON.parseObject(response, Map.class);

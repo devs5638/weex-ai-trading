@@ -21,6 +21,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const stopBtn = document.getElementById('stop-btn');
     stopBtn.addEventListener('click', stopTrading);
 
+    // 一键平仓按钮事件
+    const closePositionBtn = document.getElementById('close-position-btn');
+    if (closePositionBtn) {
+        closePositionBtn.addEventListener('click', closePosition);
+    }
+
     // 定时刷新数据
     setInterval(() => {
         loadBalance();
@@ -257,5 +263,31 @@ function loadStatus() {
     })
     .catch(error => {
         console.error('加载交易状态出错:', error);
+    });
+}
+
+// 一键平仓
+function closePosition() {
+    if (!confirm('确认一键平仓当前持仓吗？')) {
+        return;
+    }
+
+    fetch('/api/trading/close-position', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('平仓指令已提交');
+            // 平仓后刷新持仓与余额信息
+            loadPosition();
+            loadBalance();
+        } else {
+            alert('平仓失败: ' + (data.message || '未知错误'));
+        }
+    })
+    .catch(error => {
+        console.error('平仓出错:', error);
+        alert('平仓出错，请稍后重试');
     });
 }

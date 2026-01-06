@@ -142,8 +142,6 @@ public class TradingService {
         logger.info("Executing trade: {} {} {}",
                 tradingSignal.getOperation(), apiConfig.getTradingSymbol(), tradingSignal.getAmount());
         
-        Map<String, Object> result;
-
         // 执行市价订单
         try {
             weexClient.createMarketOrder(apiConfig.getTradingSymbol(), tradingSignal);
@@ -180,6 +178,50 @@ public class TradingService {
      */
     public Map<String, Object> getPosition() throws Exception {
         return weexClient.getPosition();
+    }
+
+    /**
+     * 一键平仓：根据当前持仓方向与数量，自动下反向市价单
+     * 1:开多 2:开空 3:平多 4:平空
+     */
+    public Map<String, Object> closeCurrentPosition() throws Exception {
+        Map<String, Object> position = weexClient.getPosition();
+        if (position == null) {
+            logger.warn("No position to close");
+            return null;
+        }
+
+        Object sideObj = position.get("side");
+        Object sizeObj = position.get("size");
+        if (sideObj == null || sizeObj == null) {
+            logger.warn("Position side or size is null, cannot close");
+            return null;
+        }
+
+        String side = sideObj.toString();
+        String sizeStr = sizeObj.toString();
+
+        int closeType;
+        if ("LONG".equalsIgnoreCase(side)) {
+            closeType = 3; // 平多
+        } else if ("SHORT".equalsIgnoreCase(side)) {
+            closeType = 4; // 平空
+        } else {
+            logger.warn("Unsupported side type: {}", side);
+            return null;
+        }
+
+        int size;
+        try {
+            // 接口 size 为整数，直接取绝对值
+            size = Math.abs((int) Double.parseDouble(sizeStr));
+        } catch (NumberFormatException e) {
+            logger.error("Invalid position size: {}", sizeStr, e);
+            return null;
+        }
+
+        logger.info("Closing position, side: {}, size: {}, closeType: {}", side, size, closeType);
+        return weexClient.createMarketOrder(apiConfig.getTradingSymbol(), closeType, size);
     }
 
     /**

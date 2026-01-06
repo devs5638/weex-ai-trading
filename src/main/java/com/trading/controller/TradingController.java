@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -143,6 +142,30 @@ public class TradingController {
             Map<String, Object> response = new HashMap<>();
             response.put("status", "error");
             response.put("message", "Failed to get position: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    /**
+     * 一键平仓
+     */
+    @PostMapping("/close-position")
+    public ResponseEntity<Map<String, Object>> closePosition() {
+        try {
+            Map<String, Object> result = tradingService.closeCurrentPosition();
+            Map<String, Object> response = new HashMap<>();
+            if (result == null) {
+                response.put("status", "error");
+                response.put("message", "当前无可平仓位或持仓数据异常");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+            response.put("status", "success");
+            response.put("result", result);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error closing position: {}", e.getMessage(), e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "error");
+            response.put("message", "Failed to close position: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
