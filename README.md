@@ -262,4 +262,4 @@ mvn spring-boot:run
 
 ## 页面功能展示
 
-![img.png](img.png)
+<img width="2544" height="1934" alt="image" src="https://github.com/user-attachments/assets/f71d8bd9-f0d8-498f-adee-d67bf58158dc" />
