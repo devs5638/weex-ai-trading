@@ -4,8 +4,10 @@ import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONArray;
 import com.alibaba.fastjson2.JSON;
+import com.trading.config.ApiConfig;
 import com.trading.exchange.WeexClient;
 import com.trading.model.AiReq;
+import com.trading.model.TradingConfig;
 import com.trading.model.TradingSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +31,13 @@ public class AIClient {
     private static final String AI_URL = "https://api.longcat.chat/openai/v1/chat/completions";
     private static final String AI_AK = "ak_1SZ8DD4KX4pg8Ha5nH7qH66v3207Y";
 
+    @Autowired
+    private ApiConfig apiConfig;
+
     /**
-     * 获取交易信号分析
+     * 获取交易信号分析（使用配置的提示词）
      */
-    public TradingSignal getTradingSignal(AiReq req) throws Exception {
+    public TradingSignal getTradingSignal(AiReq req, TradingConfig config) throws Exception {
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", "LongCat-Flash-Chat");
@@ -45,50 +50,76 @@ public class AIClient {
         List<Map<String, String>> messages = new ArrayList<>();
         Map<String, String> systemMessage = new HashMap<>();
         systemMessage.put("role", "system");
-        systemMessage.put("content", "你是一个专业的加密货币交易分析师，深耕币圈20年，具有丰富的经验，并且实时关注社会经济动态，了解加密政策的利好，能够根据网络上实时的市场数据，必须每次给出明确的交易信号，可以收集近期的资讯以及利好和美国的一些政策来决策");
+        // 使用配置的系统提示词
+        systemMessage.put("content", config.getAiSystemPrompt());
         messages.add(systemMessage);
-        
+
         // 获取历史K线数据
         String candlesData = "";
         try {
-            String symbol = req.getSymbol() != null ? req.getSymbol() : "cmt_dogeusdt";
+            String symbol = req.getSymbol() != null ? req.getSymbol() : config.getSymbol();
             JSONArray candles = weexClient.getHistoryCandles(symbol, "1m");
-            candlesData = "历史K线数据(1分钟): " + JSON.toJSONString(candles);
+            candlesData = "\n\n历史K线数据(1分钟): " + JSON.toJSONString(candles) +
+                    "\n\nK线参数说明：" +
+                    "\nindex[0]: K线时间" +
+                    "\nindex[1]: 开盘价" +
+                    "\nindex[2]: 最高价" +
+                    "\nindex[3]: 最低价" +
+                    "\nindex[4]: 收盘价" +
+                    "\nindex[5]: 交易币成交量" +
+                    "\nindex[6]: 计价币成交量";
             logger.info("Fetched candles data for symbol: {}, count: {}", symbol, candles.size());
         } catch (Exception e) {
             logger.error("Failed to fetch history candles: {}", e.getMessage(), e);
-            candlesData = "历史K线数据获取失败: " + e.getMessage();
+            candlesData = "\n\n历史K线数据获取失败: " + e.getMessage();
         }
-        
+
         Map<String, String> userMessage = new HashMap<>();
         userMessage.put("role", "user");
+
+        String userPrompt;
         if (req.isHasPosition()){
-            userMessage.put("content", " doge的当前价格" + req.getPrice()
-                    + ", 当前有持仓 20x 方向：" + req.getSide()
-                    + " 开仓价格：" + req.getAvgEntryPrice()
-                    + " 未实现盈亏：" + req.getUnrealizePnl()
-                    + " 预估强平价：" + req.getLiquidatePrice()
-                    + " 当前可用账户余额：" + req.getBalance()
-                    + candlesData + "k线参数说明：" +
-                    "参数名\t类型\t说明\n" +
-                    "index[0]\tString\tK线时间\n" +
-                    "index[1]\tString\t开盘价\n" +
-                    "index[2]\tString\t最高价\n" +
-                    "index[3]\tString\t最低价\n" +
-                    "index[4]\tString\t收盘价\n" +
-                    "index[5]\tString\t交易币成交量\n" +
-                    "index[6]\tString\t计价币成交量"
-                    + " 生成策略信号如下：请根据这些数据给出本次的交易信号, 交易信号包含4个内容: operation操作： BUY,HOLD; side开单方向： LONG（开多）, SHORT（开空）;amount本次购买金额:usdt单位; reason:一句话总结给出本次交易信号的原因控制在100个字。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"reason\":\"...\"}"
-                    + " 信号结果可以参考以下几个角度：" +
-                    " 1、如果未实现盈亏<-10,直接返回 SELL 信号"+
-                    " 2、如果未实现盈亏>30,直接返回 SELL 信号"+
-                    " 3、搜索全网相关币圈的利好利空政策来决定判断后期走向给出交易信号"+
-                    " 4、参考一分钟k线指标判断走向给出交易信号");
+            // 使用配置的有持仓提示词模板，并替换占位符
+            userPrompt = config.getAiUserPromptWithPosition()
+                    .replace("{symbol}", req.getSymbol())
+                    .replace("{price}", String.valueOf(req.getPrice()))
+                    .replace("{side}", String.valueOf(req.getSide()))
+                    .replace("{avgEntryPrice}", String.valueOf(req.getAvgEntryPrice()))
+                    .replace("{unrealizePnl}", String.valueOf(req.getUnrealizePnl()))
+                    .replace("{liquidatePrice}", String.valueOf(req.getLiquidatePrice()))
+                    .replace("{balance}", String.valueOf(req.getBalance()));
+
+            // 添加K线数据和交易信号格式说明
+            userPrompt += candlesData;
+            userPrompt += "\n\n请根据以上数据给出交易信号，交易信号包含4个内容：";
+            userPrompt += "\n1. operation操作：BUY（买入开仓）, HOLD（持有）, SELL（卖出平仓）";
+            userPrompt += "\n2. side开单方向：LONG（开多）, SHORT（开空）";
+            userPrompt += "\n3. amount本次购买金额：USDT单位，建议使用" + config.getTradingAmount();
+            userPrompt += "\n4. reason：一句话总结给出本次交易信号的原因，控制在100个字以内";
+            userPrompt += "\n\n决策参考：";
+            userPrompt += "\n- 如果未实现盈亏 < " + config.getStopLossThreshold() + " USDT，建议止损";
+            userPrompt += "\n- 如果未实现盈亏 > " + config.getTakeProfitThreshold() + " USDT，建议止盈";
+            userPrompt += "\n- 参考K线技术指标判断走向";
+            userPrompt += "\n- 关注币圈最新资讯和政策动态";
+            userPrompt += "\n\n请将返回值格式化为JSON字符串：{\"operation\":\"...\",\"side\":\"...\",\"amount\":...,\"reason\":\"...\"}";
         } else {
-            userMessage.put("content", " doge的当前价格" + req.getPrice() 
-                    + candlesData
-                    + ", 按照当前行情，请必须明确给出本次的交易信号,  交易信号包含4个内容: operation操作： BUY,HOLD; side开单方向： LONG（开多）, SHORT（开空）;amount本次购买金额:usdt单位; reason:一句话总结给出本次交易信号的原因控制在100个字。请将返回值格式化为 JSON 字符串 {\"operation\":\"...\",\"side\":\"...\",\"reason\":\"...\"}");
+            // 使用配置的无持仓提示词模板
+            userPrompt = config.getAiUserPromptNoPosition()
+                    .replace("{symbol}", req.getSymbol())
+                    .replace("{price}", String.valueOf(req.getPrice()))
+                    .replace("{balance}", String.valueOf(req.getBalance()));
+
+            // 添加K线数据和交易信号格式说明
+            userPrompt += candlesData;
+            userPrompt += "\n\n请根据以上数据给出交易信号，交易信号包含4个内容：";
+            userPrompt += "\n1. operation操作：BUY（买入开仓）, SELL（卖出开仓）";
+            userPrompt += "\n2. side开单方向：LONG（开多）, SHORT（开空）";
+            userPrompt += "\n3. amount本次购买金额：USDT单位，建议使用" + config.getTradingAmount();
+            userPrompt += "\n4. reason：一句话总结给出本次交易信号的原因，控制在100个字以内";
+            userPrompt += "\n\n请将返回值格式化为JSON字符串：{\"operation\":\"...\",\"side\":\"...\",\"amount\":...,\"reason\":\"...\"}";
         }
+
+        userMessage.put("content", userPrompt);
         messages.add(userMessage);
         
         requestBody.put("messages", messages);

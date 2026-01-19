@@ -5,9 +5,11 @@ import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import com.alibaba.fastjson2.JSON;
+import com.trading.config.ApiConfig;
 import com.trading.model.TradingSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
@@ -47,6 +49,8 @@ public class WeexClient {
 //    private static final String ACCESS_PASSPHRASE = "test011111111"; // 替换为实际的 Access Passphrase
 
 
+    @Autowired
+    private ApiConfig apiConfig;
     /**
      * 获取市场行情数据（使用合约API）
      */
@@ -76,7 +80,7 @@ public class WeexClient {
 
     public Map<String, Object> getPosition() throws Exception {
         String requestPath = "/capi/v2/account/position/singlePosition";
-        String queryString = "?symbol=cmt_dogeusdt";
+        String queryString = "?symbol=" + apiConfig.getTradingSymbol();
         String responseString = sendRequestGet(API_KEY, SECRET_KEY, ACCESS_PASSPHRASE, "GET", requestPath, queryString);
         logger.info("singlePosition data response: {}", responseString);
         // 解析响应并过滤USDT数据
@@ -85,7 +89,7 @@ public class WeexClient {
         // 查找USDT的账户信息
         Optional<JSONObject> usdtAccountOpt = jsonArray.stream()
                 .map(item -> new JSONObject((Map<String, Object>) item))
-                .filter(account -> "cmt_dogeusdt".equals(account.getStr("symbol")))
+                .filter(account -> apiConfig.getTradingSymbol().equals(account.getStr("symbol")))
                 .findFirst();
 
         if (usdtAccountOpt.isPresent()) {
@@ -178,19 +182,19 @@ public class WeexClient {
      */
     public Map<String, Object> createMarketOrder(String symbol, TradingSignal tradingSignal) throws Exception {
         // 兼容原有逻辑，默认 size 仍然使用固定值
-        return createMarketOrder(symbol, tradingSignal.getType(), 3600);
+        return createMarketOrder(symbol, tradingSignal.getType(), apiConfig.getTradingVolume());
     }
 
     /**
      * 创建市价订单（合约API）——显式传入 type 与 size
      */
-    public Map<String, Object> createMarketOrder(String symbol, int type, int size) throws Exception {
+    public Map<String, Object> createMarketOrder(String symbol, int type, double size) throws Exception {
         String requestPath = "/capi/v2/order/placeOrder";
 
         Map<String, Object> orderParams = new HashMap<>();
         orderParams.put("symbol", symbol);
         orderParams.put("client_oid", UUID.randomUUID().toString()); // 自定义订单号（不超过40个字符）
-        orderParams.put("type", type); // 1:开多 2:开空 3:平多 4:平空
+        orderParams.put("type", 1); // 1:开多 2:开空 3:平多 4:平空
         orderParams.put("size", size); // 下单数量
         orderParams.put("order_type", 0); // 0:普通，1:只做maker；2:全部成交或立即取消；3:立即成交并取消剩余
         orderParams.put("match_price", 1); // 0:限价，1:市价

@@ -3,52 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weex AI Trading Dashboard</title>
+    <title>Weex AI 量化交易系统</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Weex AI Trading Bot</h1>
-            <div id="status" class="status">交易状态: 未启动</div>
+            <div class="header-content">
+                <div class="header-left">
+                    <i class="fas fa-robot"></i>
+                    <h1>Weex AI 量化交易系统</h1>
+                </div>
+                <div class="header-right">
+                    <div id="status" class="status">
+                        <i class="fas fa-circle"></i>
+                        <span id="status-text">未启动</span>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <main>
+            <!-- 交易配置区域 -->
+            <section class="config-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-cog"></i> 交易配置</h2>
+                    <button id="toggle-config-btn" class="btn-icon">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div id="config-content" class="config-content">
+                    <div class="config-grid">
+                        <div class="config-item">
+                            <label for="symbol-select">
+                                <i class="fas fa-coins"></i> 交易币种
+                            </label>
+                            <select id="symbol-select" class="form-select">
+                                <option value="">加载中...</option>
+                            </select>
+                        </div>
+                        <div class="config-item">
+                            <label for="amount-select">
+                                <i class="fas fa-dollar-sign"></i> 交易数量 (USDT)
+                            </label>
+                            <select id="amount-select" class="form-select">
+                                <option value="10">10 USDT</option>
+                                <option value="50">50 USDT</option>
+                                <option value="100">100 USDT</option>
+                                <option value="200">200 USDT</option>
+                                <option value="500">500 USDT</option>
+                                <option value="1000">1000 USDT</option>
+                                <option value="2000">2000 USDT</option>
+                                <option value="5000">5000 USDT</option>
+                                <option value="10000">10000 USDT</option>
+                                <option value="43200" selected>43200 USDT</option>
+                            </select>
+                        </div>
+                        <div class="config-item">
+                            <label for="stop-loss">
+                                <i class="fas fa-shield-alt"></i> 止损阈值 (USDT)
+                            </label>
+                            <input type="number" id="stop-loss" class="form-input" value="-10" step="1">
+                        </div>
+                        <div class="config-item">
+                            <label for="take-profit">
+                                <i class="fas fa-chart-line"></i> 止盈阈值 (USDT)
+                            </label>
+                            <input type="number" id="take-profit" class="form-input" value="30" step="1">
+                        </div>
+                    </div>
+
+                    <div class="ai-prompt-section">
+                        <h3><i class="fas fa-brain"></i> AI 提示词配置</h3>
+                        <div class="prompt-item">
+                            <label for="ai-system-prompt">系统提示词</label>
+                            <textarea id="ai-system-prompt" class="form-textarea" rows="3"
+                                placeholder="定义AI的角色和专业背景..."></textarea>
+                        </div>
+                        <div class="prompt-item">
+                            <label for="ai-prompt-with-position">有持仓时提示词模板</label>
+                            <textarea id="ai-prompt-with-position" class="form-textarea" rows="3"
+                                placeholder="使用 {price}, {side}, {avgEntryPrice}, {unrealizePnl}, {liquidatePrice}, {balance} 作为占位符..."></textarea>
+                        </div>
+                        <div class="prompt-item">
+                            <label for="ai-prompt-no-position">无持仓时提示词模板</label>
+                            <textarea id="ai-prompt-no-position" class="form-textarea" rows="2"
+                                placeholder="使用 {price}, {balance} 作为占位符..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="config-actions">
+                        <button id="save-config-btn" class="btn-success">
+                            <i class="fas fa-save"></i> 保存配置
+                        </button>
+                        <button id="reset-config-btn" class="btn-warning">
+                            <i class="fas fa-undo"></i> 重置为默认
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 实时数据区域 -->
             <section class="data-section">
-                <h2>实时数据</h2>
+                <h2><i class="fas fa-chart-bar"></i> 实时数据</h2>
                 <div class="data-grid">
                     <div class="data-item">
-                        <h3>账户总权益</h3>
-                        <div id="total-equity">加载中...</div>
+                        <div class="data-icon">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <div class="data-content">
+                            <h3>账户总权益</h3>
+                            <div id="total-equity" class="data-value">加载中...</div>
+                        </div>
                     </div>
                     <div class="data-item">
-                        <h3>账户余额</h3>
-                        <div id="balance">加载中...</div>
+                        <div class="data-icon">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="data-content">
+                            <h3>可用余额</h3>
+                            <div id="balance" class="data-value">加载中...</div>
+                        </div>
+                    </div>
+                    <div class="data-item">
+                        <div class="data-icon">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="data-content">
+                            <h3>当前币种</h3>
+                            <div id="current-symbol" class="data-value">-</div>
+                        </div>
                     </div>
                 </div>
             </section>
 
+            <!-- 交易控制区域 -->
             <section class="trading-section">
-                <h2>交易控制</h2>
+                <h2><i class="fas fa-play-circle"></i> 交易控制</h2>
                 <div class="control-buttons">
-                    <button id="start-btn" class="btn-primary">启动交易</button>
-                    <button id="stop-btn" class="btn-secondary">停止交易</button>
-                    <button id="close-position-btn" class="btn-secondary">一键平仓</button>
+                    <button id="start-btn" class="btn-primary">
+                        <i class="fas fa-play"></i> 启动交易
+                    </button>
+                    <button id="stop-btn" class="btn-danger">
+                        <i class="fas fa-stop"></i> 停止交易
+                    </button>
+                    <button id="close-position-btn" class="btn-warning">
+                        <i class="fas fa-times-circle"></i> 一键平仓
+                    </button>
                 </div>
             </section>
 
+            <!-- 持仓信息区域 -->
             <section class="position-section">
-                <h2>当前持仓</h2>
+                <h2>
+                    <i class="fas fa-briefcase"></i> 当前持仓
+                    <span style="font-size: 14px; font-weight: normal; color: #7f8c8d; margin-left: 10px;">
+                        (<span id="position-symbol-display">-</span>)
+                    </span>
+                </h2>
                 <div id="position-info">
                     <table class="position-table">
                         <thead>
                             <tr>
-                                <th>保证金</th>
-                                <th>持仓方向</th>
-                                <th>持仓数量</th>
-                                <th>开仓均价</th>
-                                <th>未实现盈亏</th>
-                                <th>强平价格</th>
+                                <th><i class="fas fa-shield-alt"></i> 保证金</th>
+                                <th><i class="fas fa-exchange-alt"></i> 持仓方向</th>
+                                <th><i class="fas fa-layer-group"></i> 持仓数量</th>
+                                <th><i class="fas fa-tag"></i> 开仓均价</th>
+                                <th><i class="fas fa-chart-line"></i> 未实现盈亏</th>
+                                <th><i class="fas fa-exclamation-triangle"></i> 强平价格</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -65,6 +188,10 @@
                 </div>
             </section>
         </main>
+
+        <footer>
+            <p>© 2026 Weex AI Trading System | Powered by AI</p>
+        </footer>
     </div>
 
     <script src="/js/style.js"></script>

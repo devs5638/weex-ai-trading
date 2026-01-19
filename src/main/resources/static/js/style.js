@@ -1,31 +1,45 @@
-// 全局变量，用于保存余额、未实现盈亏和账户保证金
+// 全局变量
 let currentBalance = 0;
 let currentUnrealizePnl = 0;
 let currentMarginSize = 0;
+let currentConfig = null;
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', function() {
+    // 初始化页面
+    initializePage();
+
+    // 加载配置
+    loadConfig();
+
+    // 加载支持的币种
+    loadSupportedSymbols();
+
     // 初始化页面数据
     loadBalance();
     loadPosition();
     loadStatus();
-    
+
     // 初始化总权益显示
-    document.getElementById('total-equity').textContent = 'USDT: 0.00';
+    document.getElementById('total-equity').textContent = '0.00 USDT';
 
     // 启动交易按钮事件
-    const startBtn = document.getElementById('start-btn');
-    startBtn.addEventListener('click', startTrading);
+    document.getElementById('start-btn').addEventListener('click', startTrading);
 
     // 停止交易按钮事件
-    const stopBtn = document.getElementById('stop-btn');
-    stopBtn.addEventListener('click', stopTrading);
+    document.getElementById('stop-btn').addEventListener('click', stopTrading);
 
     // 一键平仓按钮事件
-    const closePositionBtn = document.getElementById('close-position-btn');
-    if (closePositionBtn) {
-        closePositionBtn.addEventListener('click', closePosition);
-    }
+    document.getElementById('close-position-btn').addEventListener('click', closePosition);
+
+    // 配置折叠按钮事件
+    document.getElementById('toggle-config-btn').addEventListener('click', toggleConfig);
+
+    // 保存配置按钮事件
+    document.getElementById('save-config-btn').addEventListener('click', saveConfig);
+
+    // 重置配置按钮事件
+    document.getElementById('reset-config-btn').addEventListener('click', resetConfig);
 
     // 定时刷新数据
     setInterval(() => {
@@ -35,14 +49,106 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 5000);
 });
 
+// 初始化页面
+function initializePage() {
+    console.log('Initializing Weex AI Trading Dashboard...');
+}
+
+// 折叠/展开配置区域
+function toggleConfig() {
+    const configContent = document.getElementById('config-content');
+    const toggleBtn = document.getElementById('toggle-config-btn');
+
+    configContent.classList.toggle('collapsed');
+    toggleBtn.classList.toggle('rotated');
+}
+
+// 加载配置
+function loadConfig() {
+    fetch('/api/config')
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            currentConfig = data.config;
+            updateConfigUI(data.config);
+        }
+    })
+    .catch(error => {
+        console.error('加载配置出错:', error);
+    });
+}
+
+// 更新配置UI
+function updateConfigUI(config) {
+    document.getElementById('symbol-select').value = config.symbol || 'cmt_dogeusdt';
+    document.getElementById('amount-select').value = config.tradingAmount || 43200;
+    document.getElementById('stop-loss').value = config.stopLossThreshold || -10;
+    document.getElementById('take-profit').value = config.takeProfitThreshold || 30;
+    document.getElementById('ai-system-prompt').value = config.aiSystemPrompt || '';
+    document.getElementById('ai-prompt-with-position').value = config.aiUserPromptWithPosition || '';
+    document.getElementById('ai-prompt-no-position').value = config.aiUserPromptNoPosition || '';
+
+    // 更新当前币种显示
+    updateCurrentSymbol(config.symbol);
+}
+
+// 更新当前币种显示
+function updateCurrentSymbol(symbol) {
+    if (symbol) {
+        // 提取币种名称（去掉cmt_前缀）
+        const displayName = symbol.replace('cmt_', '').toUpperCase();
+
+        // 更新数据卡片中的币种显示
+        const symbolDisplay = document.getElementById('current-symbol');
+        if (symbolDisplay) {
+            symbolDisplay.textContent = displayName;
+        }
+
+        // 更新持仓区域的币种显示
+        const positionSymbolDisplay = document.getElementById('position-symbol-display');
+        if (positionSymbolDisplay) {
+            positionSymbolDisplay.textContent = displayName;
+        }
+    }
+}
+
+// 加载支持的币种
+function loadSupportedSymbols() {
+    fetch('/api/config/symbols')
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const symbolSelect = document.getElementById('symbol-select');
+            symbolSelect.innerHTML = '';
+
+            data.symbols.forEach(symbol => {
+                const option = document.createElement('option');
+                option.value = symbol.value;
+                option.textContent = `${symbol.label} - ${symbol.name}`;
+                symbolSelect.appendChild(option);
+            });
+
+            // 如果已有配置，设置选中项
+            if (currentConfig && currentConfig.symbol) {
+                symbolSelect.value = currentConfig.symbol;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('加载币种列表出错:', error);
+    });
+}
+
 // 保存配置
 function saveConfig() {
     const config = {
-        apiKey: document.getElementById('apiKey').value,
-        apiSecret: document.getElementById('apiSecret').value,
-        symbol: document.getElementById('symbol').value,
-        amount: document.getElementById('amount').value,
-        interval: document.getElementById('interval').value
+        symbol: document.getElementById('symbol-select').value,
+        tradingAmount: parseFloat(document.getElementById('amount-select').value),
+        stopLossThreshold: parseFloat(document.getElementById('stop-loss').value),
+        takeProfitThreshold: parseFloat(document.getElementById('take-profit').value),
+        aiSystemPrompt: document.getElementById('ai-system-prompt').value,
+        aiUserPromptWithPosition: document.getElementById('ai-prompt-with-position').value,
+        aiUserPromptNoPosition: document.getElementById('ai-prompt-no-position').value
     };
 
     fetch('/api/config', {
@@ -55,15 +161,40 @@ function saveConfig() {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            alert('配置保存成功');
+            alert('✅ 配置保存成功！');
+            currentConfig = data.config;
+            updateCurrentSymbol(config.symbol);
+            // 立即刷新持仓数据，显示新币种的持仓
+            loadPosition();
+            loadBalance();
         } else {
-            alert('配置保存失败: ' + data.message);
+            alert('❌ 配置保存失败: ' + data.message);
         }
     })
     .catch(error => {
         console.error('保存配置出错:', error);
-        alert('保存配置出错');
+        alert('❌ 保存配置出错');
     });
+}
+
+// 重置配置为默认值
+function resetConfig() {
+    if (!confirm('确定要重置为默认配置吗？')) {
+        return;
+    }
+
+    const defaultConfig = {
+        symbol: 'cmt_dogeusdt',
+        tradingAmount: 43200,
+        stopLossThreshold: -10,
+        takeProfitThreshold: 30,
+        aiSystemPrompt: '你是一个专业的加密货币交易分析师，深耕币圈20年，具有丰富的经验，并且实时关注社会经济动态，了解加密政策的利好，能够根据网络上实时的市场数据，必须每次给出明确的交易信号，可以收集近期的资讯以及利好和美国的一些政策来决策',
+        aiUserPromptWithPosition: '当前价格: {price}, 持仓方向: {side}, 开仓价格: {avgEntryPrice}, 未实现盈亏: {unrealizePnl}, 预估强平价: {liquidatePrice}, 可用余额: {balance}。请根据K线数据和市场情况给出交易信号。',
+        aiUserPromptNoPosition: '当前价格: {price}, 可用余额: {balance}。请根据K线数据和市场情况给出交易信号。'
+    };
+
+    updateConfigUI(defaultConfig);
+    alert('✅ 已重置为默认配置，请点击"保存配置"按钮保存');
 }
 
 // 启动交易
@@ -74,36 +205,49 @@ function startTrading() {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            document.getElementById('status').textContent = '交易状态: 运行中';
-            document.getElementById('status').style.color = 'green';
+            updateStatusUI('运行中', 'running');
+            alert('✅ 交易已启动！');
         } else {
-            alert('启动交易失败: ' + data.message);
+            alert('❌ 启动交易失败: ' + data.message);
         }
     })
     .catch(error => {
         console.error('启动交易出错:', error);
-        alert('启动交易出错');
+        alert('❌ 启动交易出错');
     });
 }
 
 // 停止交易
 function stopTrading() {
+    if (!confirm('确定要停止交易吗？')) {
+        return;
+    }
+
     fetch('/api/trading/stop', {
         method: 'POST'
     })
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            document.getElementById('status').textContent = '交易状态: 已停止';
-            document.getElementById('status').style.color = 'red';
+            updateStatusUI('已停止', 'stopped');
+            alert('✅ 交易已停止！');
         } else {
-            alert('停止交易失败: ' + data.message);
+            alert('❌ 停止交易失败: ' + data.message);
         }
     })
     .catch(error => {
         console.error('停止交易出错:', error);
-        alert('停止交易出错');
+        alert('❌ 停止交易出错');
     });
+}
+
+// 更新状态UI
+function updateStatusUI(statusText, statusClass) {
+    const statusElement = document.getElementById('status');
+    const statusTextElement = document.getElementById('status-text');
+
+    statusTextElement.textContent = statusText;
+    statusElement.className = 'status ' + statusClass;
 }
 
 // 加载账户余额
@@ -113,22 +257,26 @@ function loadBalance() {
     .then(data => {
         if (data.status === 'success') {
             const accountBalance = data.accountBalance;
-            // 保存余额值到全局变量
+
+            // 可用余额
             currentBalance = parseFloat(accountBalance.available) || 0;
-            document.getElementById('balance').textContent = 'USDT: ' + accountBalance.available;
-            // 计算并更新总权益
-            calculateTotalEquity();
+            document.getElementById('balance').textContent = currentBalance.toFixed(2) + ' USDT';
+
+            // 总权益（使用API返回的equity）
+            const totalEquity = parseFloat(accountBalance.equity) || 0;
+            document.getElementById('total-equity').textContent = totalEquity.toFixed(2) + ' USDT';
+
+            // 未实现盈亏（从API获取）
+            if (accountBalance.unrealizePnl !== undefined) {
+                currentUnrealizePnl = parseFloat(accountBalance.unrealizePnl) || 0;
+            }
         }
     })
     .catch(error => {
         console.error('加载余额出错:', error);
+        document.getElementById('balance').textContent = '加载失败';
+        document.getElementById('total-equity').textContent = '加载失败';
     });
-}
-
-// 计算并更新账户总权益
-function calculateTotalEquity() {
-    const totalEquity = currentBalance + currentUnrealizePnl + currentMarginSize;
-    document.getElementById('total-equity').textContent = 'USDT: ' + totalEquity.toFixed(2);
 }
 
 // 加载当前价格
@@ -186,26 +334,20 @@ function loadPosition() {
                 } else if (currentUnrealizePnl < 0) {
                     unrealizePnlElement.classList.add('negative');
                 }
-                
-                // 计算并更新总权益
-                calculateTotalEquity();
             } else {
                 document.getElementById('position-side').textContent = '无持仓';
                 document.getElementById('position-size').textContent = '0';
                 document.getElementById('position-open-value').textContent = '0';
                 document.getElementById('position-liquidate-price').textContent = 'N/A';
                 document.getElementById('position-margin-size').textContent = '0';
-                
+
                 // 无持仓时重置盈亏样式和值
                 unrealizePnlElement.textContent = '0';
                 unrealizePnlElement.classList.remove('positive', 'negative');
-                
+
                 // 重置全局变量
                 currentMarginSize = 0;
                 currentUnrealizePnl = 0;
-                
-                // 计算并更新总权益
-                calculateTotalEquity();
             }
         }
     })
@@ -251,14 +393,19 @@ function loadStatus() {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            const statusElement = document.getElementById('status');
-            if (data.tradingStatus === 'RUNNING' || data.tradingStatus === 'EXECUTING') {
-                statusElement.textContent = '交易状态: 运行中';
-                statusElement.style.color = 'green';
+            const tradingStatus = data.tradingStatus;
+            let statusText = '';
+            let statusClass = '';
+
+            if (tradingStatus === 'RUNNING' || tradingStatus === 'EXECUTING') {
+                statusText = '运行中';
+                statusClass = 'running';
             } else {
-                statusElement.textContent = '交易状态: 已停止';
-                statusElement.style.color = 'red';
+                statusText = '已停止';
+                statusClass = 'stopped';
             }
+
+            updateStatusUI(statusText, statusClass);
         }
     })
     .catch(error => {
@@ -268,7 +415,7 @@ function loadStatus() {
 
 // 一键平仓
 function closePosition() {
-    if (!confirm('确认一键平仓当前持仓吗？')) {
+    if (!confirm('⚠️ 确认一键平仓当前持仓吗？')) {
         return;
     }
 
@@ -278,16 +425,16 @@ function closePosition() {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            alert('平仓指令已提交');
+            alert('✅ 平仓指令已提交！');
             // 平仓后刷新持仓与余额信息
             loadPosition();
             loadBalance();
         } else {
-            alert('平仓失败: ' + (data.message || '未知错误'));
+            alert('❌ 平仓失败: ' + (data.message || '未知错误'));
         }
     })
     .catch(error => {
         console.error('平仓出错:', error);
-        alert('平仓出错，请稍后重试');
+        alert('❌ 平仓出错，请稍后重试');
     });
 }

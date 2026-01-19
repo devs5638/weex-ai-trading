@@ -5,7 +5,7 @@ import com.trading.ai.AIClient;
 import com.trading.config.ApiConfig;
 import com.trading.exchange.WeexClient;
 import com.trading.model.AiReq;
-
+import com.trading.model.TradingConfig;
 import com.trading.model.TradingSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,11 +34,19 @@ public class TradingService {
     private final List<TradeRecord> tradeHistory = new ArrayList<>();
     private TradingStatus currentStatus = TradingStatus.STOPPED;
 
+    // 动态交易配置
+    private TradingConfig tradingConfig;
+
     @Autowired
     public TradingService(ApiConfig apiConfig, WeexClient weexClient, AIClient aiClient) {
         this.apiConfig = apiConfig;
         this.weexClient = weexClient;
         this.aiClient = aiClient;
+        // 初始化默认配置
+        this.tradingConfig = new TradingConfig();
+        // 从ApiConfig读取初始配置
+        this.tradingConfig.setSymbol(apiConfig.getTradingSymbol());
+        this.tradingConfig.setTradingAmount(apiConfig.getTradingVolume());
     }
 
     /**
@@ -51,7 +59,7 @@ public class TradingService {
         }
 
         executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(this::executeTradeCycle, 0, 5, TimeUnit.MINUTES);
+        executorService.scheduleAtFixedRate(this::executeTradeCycle, 0, 10, TimeUnit.SECONDS);
         
         isRunning = true;
         currentStatus = TradingStatus.RUNNING;
@@ -87,13 +95,14 @@ public class TradingService {
      */
     private void executeTradeCycle() {
         try {
-            logger.info("Starting trade cycle for symbol: {}", apiConfig.getTradingSymbol());
+            String currentSymbol = tradingConfig.getSymbol();
+            logger.info("Starting trade cycle for symbol: {}", currentSymbol);
             currentStatus = TradingStatus.EXECUTING;
             AiReq req = new AiReq();
-            // 设置交易对符号
-            req.setSymbol(apiConfig.getTradingSymbol());
+            // 0. 设置交易对符号
+            req.setSymbol(currentSymbol);
             // 1. 获取市场价格
-            Map<String, Object> marketData = weexClient.getMarketData(apiConfig.getTradingSymbol());
+            Map<String, Object> marketData = weexClient.getMarketData(currentSymbol);
             String indexPrice = marketData.get("index").toString();
             req.setPrice(indexPrice);
             // 2. 获取当前余额
@@ -113,7 +122,7 @@ public class TradingService {
             }
             logger.info("Position: {}", JSON.toJSONString(req));
             // 2. 获取AI交易信号
-            TradingSignal tradingSignal = aiClient.getTradingSignal(req);
+            TradingSignal tradingSignal = aiClient.getTradingSignal(req, tradingConfig);
 
             // 3. 根据策略生成交易决策
 //            TradingDecision decision = strategy.getTradingDecision(apiConfig.getTradingSymbol(), marketData, aiSignal);
@@ -124,7 +133,7 @@ public class TradingService {
             } else {
                 logger.info("Hold decision, no trade executed");
             }
-            
+
         } catch (Exception e) {
             logger.error("Error in trade cycle: {}", e.getMessage(), e);
             currentStatus = TradingStatus.ERROR;
@@ -139,12 +148,13 @@ public class TradingService {
      * 执行交易
      */
     private void executeTrade(TradingSignal tradingSignal) throws Exception {
+        String currentSymbol = tradingConfig.getSymbol();
         logger.info("Executing trade: {} {} {}",
-                tradingSignal.getOperation(), apiConfig.getTradingSymbol(), tradingSignal.getAmount());
-        
+                tradingSignal.getOperation(), currentSymbol, tradingSignal.getAmount());
+
         // 执行市价订单
         try {
-            weexClient.createMarketOrder(apiConfig.getTradingSymbol(), tradingSignal);
+            weexClient.createMarketOrder(currentSymbol, tradingSignal);
         } catch (Exception e) {
             logger.error("Error executing market order: {}", e.getMessage(), e);
         }
@@ -170,7 +180,7 @@ public class TradingService {
      * 获取市场数据
      */
     public Map<String, Object> getMarketData() throws Exception {
-        return weexClient.getMarketData(apiConfig.getTradingSymbol());
+        return weexClient.getMarketData(tradingConfig.getSymbol());
     }
 
     /**
@@ -211,17 +221,17 @@ public class TradingService {
             return null;
         }
 
-        int size;
+        double size;
         try {
             // 接口 size 为整数，直接取绝对值
-            size = Math.abs((int) Double.parseDouble(sizeStr));
+            size = Double.parseDouble(sizeStr);
         } catch (NumberFormatException e) {
             logger.error("Invalid position size: {}", sizeStr, e);
             return null;
         }
 
         logger.info("Closing position, side: {}, size: {}, closeType: {}", side, size, closeType);
-        return weexClient.createMarketOrder(apiConfig.getTradingSymbol(), closeType, size);
+        return weexClient.createMarketOrder(tradingConfig.getSymbol(), closeType, size);
     }
 
     /**
@@ -231,6 +241,36 @@ public class TradingService {
         synchronized (tradeHistory) {
             return new ArrayList<>(tradeHistory);
         }
+    }
+
+    /**
+     * 获取当前交易配置
+     */
+    public TradingConfig getTradingConfig() {
+        return tradingConfig;
+    }
+
+    /**
+     * 更新交易配置
+     */
+    public synchronized void updateTradingConfig(TradingConfig newConfig) {
+        if (isRunning) {
+            logger.warn("Cannot update config while trading is running");
+            throw new IllegalStateException("请先停止交易再更新配置");
+        }
+        this.tradingConfig = newConfig;
+
+        // 同步更新ApiConfig中的币种和交易量，确保WeexClient使用最新配置
+        if (newConfig.getSymbol() != null) {
+            apiConfig.setTradingSymbol(newConfig.getSymbol());
+            logger.info("Updated trading symbol to: {}", newConfig.getSymbol());
+        }
+        if (newConfig.getTradingAmount() > 0) {
+            apiConfig.setTradingVolume(newConfig.getTradingAmount());
+            logger.info("Updated trading amount to: {}", newConfig.getTradingAmount());
+        }
+
+        logger.info("Trading config updated: {}", newConfig);
     }
 
     /**
